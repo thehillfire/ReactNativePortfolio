@@ -14,6 +14,8 @@ export default function CharacterName() {
   const [isSaving, setIsSaving] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  console.log("CharacterName - imageUrl:", imageUrl);
+
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -85,14 +87,20 @@ export default function CharacterName() {
         showsVerticalScrollIndicator={false}
       >
         {/* Character Image */}
-        {imageUrl && (
+        {imageUrl ? (
           <Animated.View style={[styles.imageWrapper, { opacity: fadeAnim }]}>
             <Image 
               source={{ uri: imageUrl as string }} 
               style={styles.characterImage}
               resizeMode="contain"
+              onError={(error) => console.error("Image load error:", error)}
+              onLoad={() => console.log("Image loaded successfully")}
             />
           </Animated.View>
+        ) : (
+          <View style={styles.imageWrapper}>
+            <Text style={styles.noImageText}>No image available</Text>
+          </View>
         )}
         
         {/* Title */}
@@ -240,5 +248,10 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontSize: 18,
     fontWeight: "600",
+  },
+  noImageText: {
+    color: "#666",
+    fontSize: 16,
+    textAlign: "center",
   },
 });

@@ -10,10 +10,10 @@ export default function Questionnaire() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Fade in at half speed (2000ms instead of 1000ms)
+    // Fade in at 2x slower than normal (4000ms)
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 2000,
+      duration: 4000,
       useNativeDriver: true,
     }).start();
   }, [currentQuestion]);

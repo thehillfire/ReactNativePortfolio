@@ -1,9 +1,9 @@
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Image, StyleSheet, Text, View, Pressable } from "react-native";
-import { useAuth } from "../context/AuthContext";
 import { doc, getDoc } from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { db } from "../config/firebase";
+import { useAuth } from "../context/AuthContext";
 
 export default function Projects() {
   const router = useRouter();
