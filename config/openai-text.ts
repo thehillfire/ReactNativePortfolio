@@ -1,17 +1,24 @@
 // OpenAI API Configuration for text generation via Cloud Functions
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { app } from './firebase';
-
-const functions = getFunctions(app);
+const CLOUD_FUNCTION_URL = "https://us-central1-loreforgeauth.cloudfunctions.net/generateCharacterBackstory";
 
 export const generateBackstory = async (prompt: string): Promise<string> => {
   console.log("Calling Cloud Function to generate backstory...");
   
   try {
-    const generateBackstoryFunction = httpsCallable(functions, 'generateCharacterBackstory');
-    const result = await generateBackstoryFunction({ prompt });
-    const data = result.data as { backstory: string };
-    
+    const response = await fetch(CLOUD_FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to generate backstory');
+    }
+
+    const data = await response.json();
     console.log("Backstory generated successfully via Cloud Function");
     return data.backstory;
   } catch (error: any) {

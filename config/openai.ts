@@ -1,17 +1,24 @@
 // OpenAI API Configuration via Cloud Functions
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { app } from './firebase';
-
-const functions = getFunctions(app);
+const CLOUD_FUNCTION_URL = "https://us-central1-loreforgeauth.cloudfunctions.net/generateCharacterImage";
 
 export const generateImage = async (prompt: string): Promise<string> => {
   console.log("Calling Cloud Function to generate image with prompt:", prompt);
   
   try {
-    const generateImageFunction = httpsCallable(functions, 'generateCharacterImage');
-    const result = await generateImageFunction({ prompt });
-    const data = result.data as { imageUrl: string };
-    
+    const response = await fetch(CLOUD_FUNCTION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to generate image');
+    }
+
+    const data = await response.json();
     console.log("Image generated successfully via Cloud Function");
     return data.imageUrl;
   } catch (error: any) {
