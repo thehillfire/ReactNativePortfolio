@@ -29,61 +29,45 @@ export default function Login() {
   }, []);
 
   useEffect(() => {
-    // Navigate immediately when user logs in
     if (user) {
-      console.log("User logged in, navigating to projects");
-      router.replace("/projects");
+      checkUserStatus();
     }
   }, [user]);
 
+  const checkUserStatus = async () => {
+    if (!user) return;
+    // Always redirect to projects page after login
+    router.replace("/projects");
+  };
+
   const handleLogin = async () => {
-    console.log("handleLogin called");
-    console.log("Email:", email);
-    
-    setError(""); // Clear previous errors
-    
     if (!email || !password) {
       setError("Please fill in all fields");
       return;
     }
 
-    console.log("Starting login...");
     setLoading(true);
+    setError("");
+
     try {
       await signIn(email, password);
-      console.log("Login successful!");
-      // Navigation will be handled automatically by auth state change
-    } catch (error: any) {
-      console.error("Login error:", error);
-      const errorMessage = error.message
-        .replace("Firebase: Error ", "")
-        .replace(/[()]/g, "")
-        .replace("auth/invalid-credential", "Invalid email or password")
-        .replace("auth/user-not-found", "No account found with this email")
-        .replace("auth/wrong-password", "Incorrect password")
-        .replace("auth/too-many-requests", "Too many attempts. Try again later");
-      setError(errorMessage);
+    } catch (err: any) {
+      setError(err.message || "Failed to sign in");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
-
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
+        <Text style={styles.subtitle}>Continue your adventure</Text>
 
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#666"
+          placeholderTextColor="#999"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -93,53 +77,62 @@ export default function Login() {
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor="#666"
+          placeholderTextColor="#999"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
         <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            pressed && styles.buttonPressed,
-          ]}
+          style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#000000" />
+            <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.buttonText}>Sign In</Text>
           )}
         </Pressable>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <Pressable onPress={() => router.push("/register")}>
-            <Text style={styles.linkText}>Sign Up</Text>
-          </Pressable>
-        </View>
-      </View>
-    </Animated.View>
+        <Pressable
+          style={styles.linkButton}
+          onPress={() => router.push("/register")}
+        >
+          <Text style={styles.linkText}>
+            Don't have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.linkButton}
+          onPress={() => router.push("/welcome")}
+        >
+          <Text style={styles.linkText}>← Back</Text>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
   },
   content: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 30,
+    width: "85%",
+    maxWidth: 300,
   },
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 10,
+    color: "#fff",
+    marginBottom: 8,
     textAlign: "center",
   },
   subtitle: {
@@ -148,60 +141,47 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     textAlign: "center",
   },
-  errorContainer: {
-    backgroundColor: "#ff3333",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  errorText: {
-    color: "#ffffff",
-    fontSize: 14,
-    textAlign: "center",
-    fontWeight: "600",
-  },
   input: {
     backgroundColor: "#1a1a1a",
     borderWidth: 1,
     borderColor: "#333",
     borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    fontSize: 14,
-    color: "#ffffff",
-    height: 40,
+    padding: 16,
+    marginBottom: 16,
+    fontSize: 16,
+    color: "#fff",
   },
   button: {
-    backgroundColor: "#000000",
-    borderWidth: 2,
-    borderColor: "#ffffff",
-    paddingVertical: 15,
+    backgroundColor: "#fff",
     borderRadius: 8,
-    marginTop: 10,
+    padding: 16,
     alignItems: "center",
-    overflow: "hidden",
+    marginTop: 8,
   },
-  buttonPressed: {
-    opacity: 0.7,
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
-    color: "#ffffff",
+    color: "#000",
     fontSize: 16,
     fontWeight: "600",
   },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 30,
+  linkButton: {
+    marginTop: 16,
+    alignItems: "center",
   },
-  footerText: {
+  linkText: {
     color: "#999",
     fontSize: 14,
   },
-  linkText: {
-    color: "#ffffff",
-    fontSize: 14,
+  linkTextBold: {
+    color: "#fff",
     fontWeight: "600",
+  },
+  error: {
+    color: "#ff6b6b",
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: "center",
   },
 });

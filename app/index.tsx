@@ -25,23 +25,16 @@ export default function Index() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Don't auto-redirect - let user manually choose to login
-  // useEffect(() => {
-  //   if (!authLoading && user) {
-  //     router.replace("/projects");
-  //   }
-  // }, [user, authLoading]);
-
   useEffect(() => {
-    // Fade in content when loading is done
-    if (!isLoading) {
-      Animated.timing(contentFadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }).start();
+    // Auto-redirect based on auth state
+    if (!authLoading && !isLoading) {
+      if (user) {
+        router.replace("/projects");
+      } else {
+        router.replace("/welcome");
+      }
     }
-  }, [isLoading]);
+  }, [user, authLoading, isLoading]);
 
   if (isLoading) {
     return (
@@ -100,8 +93,8 @@ export default function Index() {
             pressed && styles.buttonPressed
           ]}
           onPress={() => {
-            console.log("Test button pressed, navigating to questionnaire");
-            router.push("/questionnaire");
+            console.log("Test button pressed, navigating to welcome");
+            router.push("/welcome");
           }}
         >
           <Text style={styles.testButtonText}>Test (Guest Mode)</Text>

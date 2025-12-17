@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { generateImage } from "../config/openai";
-import { generateBackstory } from "../config/openai-text";
+import { generateImage } from "../config/stability";
+import { generateBackstory } from "../config/together";
 import { useAuth } from "../context/AuthContext";
 import { uploadImageToStorage } from "../utils/imageStorage";
 
@@ -12,6 +12,7 @@ export default function CharacterCreation() {
   const { user } = useAuth();
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [backstory, setBackstory] = useState<string>("");
+  const [gender, setGender] = useState<string>("male");
   const [isGenerating, setIsGenerating] = useState(true);
   const [error, setError] = useState("");
   const [debugStatus, setDebugStatus] = useState("Initializing...");
@@ -20,6 +21,7 @@ export default function CharacterCreation() {
   const titleFadeAnim = useRef(new Animated.Value(0)).current;
   const backstoryFadeAnim = useRef(new Animated.Value(0)).current;
   const buttonFadeAnim = useRef(new Animated.Value(0)).current;
+  const hasGenerated = useRef(false);
 
   console.log("CharacterCreation component mounted");
   console.log("User:", user?.uid);
@@ -35,8 +37,11 @@ export default function CharacterCreation() {
   }, []);
 
   useEffect(() => {
-    console.log("Generate character useEffect triggered");
-    generateCharacter();
+    if (!hasGenerated.current) {
+      console.log("Generate character useEffect triggered");
+      hasGenerated.current = true;
+      generateCharacter();
+    }
   }, []);
 
   useEffect(() => {
@@ -80,57 +85,46 @@ export default function CharacterCreation() {
       return;
     }
 
-    const answersArray = JSON.parse(answers as string);
-    
-    // Build character traits from answers
-    let traits = [];
-    
-    if (answersArray[0]?.includes("darkness")) {
-      traits.push("shadowy and mysterious");
-    } else {
-      traits.push("radiant and fierce");
-    }
-    
-    if (answersArray[1]?.includes("Everything")) {
-      traits.push("noble and selfless");
-    } else {
-      traits.push("cunning and strategic");
-    }
-    
-    if (answersArray[2]?.includes("storm")) {
-      traits.push("chaotic and powerful");
-    } else {
-      traits.push("wise and defensive");
-    }
-    
-    if (answersArray[3]?.includes("Feared")) {
-      traits.push("intimidating and dominant");
-    } else {
-      traits.push("compassionate and heroic");
-    }
-    
-    if (answersArray[4]?.includes("vengeance")) {
-      traits.push("vengeful and dark");
-    } else {
-      traits.push("merciful and enlightened");
-    }
-    
-    // Create image prompt
-    const prompt = `A fantasy character portrait that is ${traits.join(", ")}. Epic, detailed, mystical, high quality, dramatic lighting, full body or upper body portrait. CRITICAL: DO NOT include any text, words, letters, symbols, runes, or writing of any kind in the image. Pure visual character art only, completely text-free.`;
-    
-    setIsGenerating(true);
-    setDebugStatus("Starting image generation...");
     try {
-      console.log("Starting image generation...");
+      const answersArray = JSON.parse(answers as string);
+      console.log("Parsed answers:", answersArray);
+      
+      if (!answersArray || answersArray.length === 0) {
+        setDebugStatus("Empty answers array");
+        setError("No questionnaire answers provided");
+        setIsGenerating(false);
+        return;
+      }
+      
+      // Extract gender from first answer (Male or Female)
+      const genderAnswer = answersArray[0];
+      const extractedGender = genderAnswer?.toLowerCase().includes("male") && !genderAnswer?.toLowerCase().includes("female") 
+        ? "male" 
+        : "female";
+      setGender(extractedGender);
+      
+      // Format answers for better image generation
+      // Create a descriptive summary of character traits
+      const characterTraits = answersArray.slice(1).map((answer: string, index: number) => {
+        // Clean up the answer text
+        return answer.toLowerCase().replace(/\b(the|a|an|is|are|was|were)\b/g, '').trim();
+      }).filter((trait: string) => trait.length > 0);
+      
+      const traitsDescription = characterTraits.join(", ");
+      
+      const prompt = `A ${extractedGender} fantasy character portrait. Character personality and appearance: ${traitsDescription}. Epic fantasy style, detailed, mystical, high quality, dramatic lighting, upper body or full body portrait. CRITICAL: DO NOT include any text, words, letters, symbols, runes, or writing of any kind in the image. Pure visual character art only, completely text-free.`;
+      
+      setIsGenerating(true);
+      setDebugStatus("Starting image generation...");
+      console.log("Starting image generation with prompt:", prompt);
       setDebugStatus("Calling DALL-E API...");
       // Generate image with DALL-E
       const tempImageUrl = await generateImage(prompt);
       console.log("Image generated, URL:", tempImageUrl);
-      setDebugStatus("Image generated! Generating backstory...");
+      setDebugStatus("Image generated! Creating backstory...");
       
-      // Generate backstory
-      const backstoryPrompt = `Create a short, compelling backstory (2-3 sentences) for a fantasy RPG character with these traits: ${traits.join(", ")}. Include their origin, motivation, and what defines them.`;
-      const characterBackstory = await generateBackstory(backstoryPrompt);
+      // Generate backstory from all answers
+      const characterBackstory = await generateBackstory(answersArray);
       setBackstory(characterBackstory);
       console.log("Backstory generated");
       setDebugStatus("Backstory complete! Processing image...");
@@ -138,8 +132,8 @@ export default function CharacterCreation() {
       // Try to upload to Firebase Storage only if user is logged in
       if (user) {
         try {
-          console.log("Attempting to upload to Firebase Storage...");
-          setDebugStatus("Uploading to Firebase Storage...");
+          console.log("Attempting to upload image to Firebase Storage...");
+          setDebugStatus("Uploading image to Firebase Storage...");
           const permanentImageUrl = await uploadImageToStorage(tempImageUrl, user.uid);
           console.log("Upload successful, using permanent URL");
           setDebugStatus("Upload complete!");
@@ -206,7 +200,11 @@ export default function CharacterCreation() {
     // Navigate to name screen (works in both guest and authenticated mode)
     router.push({
       pathname: "/character-name",
-      params: { imageUrl: generatedImageUrl }
+      params: { 
+        imageUrl: generatedImageUrl,
+        backstory: backstory,
+        gender: gender
+      }
     });
   };
 
@@ -233,7 +231,7 @@ export default function CharacterCreation() {
             <Image 
               source={{ uri: generatedImageUrl }} 
               style={styles.characterImage}
-              resizeMode="contain"
+              resizeMode="cover"
             />
           </Animated.View>
           
@@ -278,7 +276,7 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     width: "100%",
-    aspectRatio: 1,
+    aspectRatio: 0.57, // Match Stability AI portrait ratio (768/1344)
     maxWidth: 500,
     marginBottom: 30,
     borderRadius: 16,

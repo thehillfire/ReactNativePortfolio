@@ -133,3 +133,63 @@ exports.generateCharacterBackstory = functions.https.onRequest((req, res) => {
     }
   });
 });
+
+// Upload image from URL to Firebase Storage
+exports.uploadImageFromUrl = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    try {
+      if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+      }
+
+      const { imageUrl, userId } = req.body;
+
+      if (!imageUrl || !userId) {
+        return res.status(400).json({ error: 'imageUrl and userId are required' });
+      }
+
+      console.log('Downloading image from URL:', imageUrl);
+
+      // Download the image from the URL
+      const imageResponse = await fetch(imageUrl);
+      
+      if (!imageResponse.ok) {
+        console.error('Failed to download image:', imageResponse.statusText);
+        return res.status(500).json({ error: 'Failed to download image from URL' });
+      }
+
+      const imageBuffer = await imageResponse.arrayBuffer();
+      const buffer = Buffer.from(imageBuffer);
+      
+      console.log('Image downloaded, size:', buffer.length, 'bytes');
+
+      // Upload to Firebase Storage
+      const timestamp = Date.now();
+      const fileName = `characters/${userId}/${timestamp}.png`;
+      const bucket = admin.storage().bucket();
+      const file = bucket.file(fileName);
+
+      await file.save(buffer, {
+        metadata: {
+          contentType: 'image/png',
+        },
+      });
+
+      console.log('Image uploaded to Firebase Storage');
+
+      // Make the file publicly accessible
+      await file.makePublic();
+
+      // Get the public URL
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+
+      console.log('Public URL:', publicUrl);
+
+      return res.status(200).json({ imageUrl: publicUrl });
+      
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return res.status(500).json({ error: error.message || 'Failed to upload image' });
+    }
+  });
+});

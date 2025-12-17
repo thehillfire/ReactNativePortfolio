@@ -34,6 +34,22 @@ firebase deploy --only functions
 
 - `generateCharacterImage` - Generates character images using DALL-E 3
 - `generateCharacterBackstory` - Generates character backstories using GPT-4
+- `uploadImageFromUrl` - **NEW!** Downloads DALL-E images and uploads to Firebase Storage (fixes expiration issue)
+
+## Fixing Image Expiration Issue
+
+The `uploadImageFromUrl` function solves the 403 error you're seeing. When deployed, it:
+1. Downloads the temporary DALL-E image from OpenAI's servers
+2. Uploads it to your Firebase Storage bucket
+3. Returns a permanent public URL
+
+**To deploy this fix:**
+```bash
+cd functions
+npm run deploy
+```
+
+After deployment, the app will automatically use this function when saving characters, and images will no longer expire!
 
 ## Security Notes
 

@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View
+  View,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 
@@ -30,29 +30,25 @@ export default function Register() {
   }, []);
 
   useEffect(() => {
-    // Navigate immediately to projects page after registration
-    // The projects page will check if character exists
-    console.log("Register useEffect - user:", user?.email);
     if (user) {
-      console.log("New user registered, navigating to projects");
-      router.replace("/projects");
+      checkUserStatus();
     }
   }, [user]);
 
+  const checkUserStatus = async () => {
+    if (!user) return;
+    // Always go through full onboarding flow when signing up
+    router.replace("/character-name");
+  };
+
   const handleRegister = async () => {
-    console.log("handleRegister called");
-    console.log("Email:", email);
-    console.log("Password length:", password.length);
-    
-    setError(""); // Clear previous errors
-    
     if (!email || !password || !confirmPassword) {
       setError("Please fill in all fields");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("Passwords don't match");
       return;
     }
 
@@ -61,39 +57,28 @@ export default function Register() {
       return;
     }
 
-    console.log("Starting registration...");
     setLoading(true);
+    setError("");
+
     try {
       await signUp(email, password);
-      console.log("Registration successful!");
-      // Navigation will be handled automatically by auth state change
-    } catch (error: any) {
-      console.error("Registration error:", error);
-      const errorMessage = error.message.includes("api-key-not-valid")
-        ? "Invalid Firebase API key. Please check your Firebase configuration."
-        : error.message.replace("Firebase: Error ", "").replace(/[()]/g, "");
-      setError(errorMessage);
+    } catch (err: any) {
+      setError(err.message || "Failed to create account");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Sign up to get started</Text>
-
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : null}
+        <Text style={styles.subtitle}>Begin your journey</Text>
 
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#666"
+          placeholderTextColor="#999"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -103,7 +88,7 @@ export default function Register() {
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor="#666"
+          placeholderTextColor="#999"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -112,56 +97,62 @@ export default function Register() {
         <TextInput
           style={styles.input}
           placeholder="Confirm Password"
-          placeholderTextColor="#666"
+          placeholderTextColor="#999"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
         />
 
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
         <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            pressed && styles.buttonPressed,
-          ]}
-          onPress={() => {
-            console.log("=== SIGN UP BUTTON CLICKED ===");
-            handleRegister();
-          }}
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleRegister}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#000000" />
+            <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.buttonText}>Sign Up</Text>
           )}
         </Pressable>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account? </Text>
-          <Pressable onPress={() => router.push("/login")}>
-            <Text style={styles.linkText}>Sign In</Text>
-          </Pressable>
-        </View>
-      </View>
-    </Animated.View>
+        <Pressable
+          style={styles.linkButton}
+          onPress={() => router.push("/login")}
+        >
+          <Text style={styles.linkText}>
+            Already have an account? <Text style={styles.linkTextBold}>Sign In</Text>
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.linkButton}
+          onPress={() => router.push("/welcome")}
+        >
+          <Text style={styles.linkText}>← Back</Text>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
   },
   content: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 30,
+    width: "85%",
+    maxWidth: 400,
   },
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 10,
+    color: "#fff",
+    marginBottom: 8,
     textAlign: "center",
   },
   subtitle: {
@@ -170,60 +161,47 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     textAlign: "center",
   },
-  errorContainer: {
-    backgroundColor: "#ff3333",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  errorText: {
-    color: "#ffffff",
-    fontSize: 14,
-    textAlign: "center",
-    fontWeight: "600",
-  },
   input: {
     backgroundColor: "#1a1a1a",
     borderWidth: 1,
     borderColor: "#333",
     borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    fontSize: 14,
-    color: "#ffffff",
-    height: 40,
+    padding: 16,
+    marginBottom: 16,
+    fontSize: 16,
+    color: "#fff",
   },
   button: {
-    backgroundColor: "#000000",
-    borderWidth: 2,
-    borderColor: "#ffffff",
-    paddingVertical: 15,
+    backgroundColor: "#fff",
     borderRadius: 8,
-    marginTop: 10,
+    padding: 16,
     alignItems: "center",
-    overflow: "hidden",
+    marginTop: 8,
   },
-  buttonPressed: {
-    opacity: 0.7,
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
-    color: "#ffffff",
+    color: "#000",
     fontSize: 16,
     fontWeight: "600",
   },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 30,
+  linkButton: {
+    marginTop: 16,
+    alignItems: "center",
   },
-  footerText: {
+  linkText: {
     color: "#999",
     fontSize: 14,
   },
-  linkText: {
-    color: "#ffffff",
-    fontSize: 14,
+  linkTextBold: {
+    color: "#fff",
     fontWeight: "600",
+  },
+  error: {
+    color: "#ff6b6b",
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: "center",
   },
 });

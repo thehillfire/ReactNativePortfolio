@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, setDoc } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { db } from "../config/firebase";
@@ -7,10 +7,11 @@ import { useAuth } from "../context/AuthContext";
 
 export default function CharacterName() {
   const router = useRouter();
-  const { imageUrl } = useLocalSearchParams();
+  const { imageUrl, backstory, gender } = useLocalSearchParams();
   const { user } = useAuth();
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [imageError, setImageError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -36,7 +37,11 @@ export default function CharacterName() {
     }
 
     if (!user) {
-      setError("You must be logged in");
+      setError("Please sign up or login to save your character");
+      console.log("No user - redirecting to register in 2 seconds");
+      setTimeout(() => {
+        router.replace("/register");
+      }, 2000);
       return;
     }
 
@@ -45,22 +50,32 @@ export default function CharacterName() {
     console.log("Starting save to Firestore...");
 
     try {
-      // Save character to Firestore
+      // Save character to Firestore with auto-generated ID (characters are just display profiles)
       const characterData = {
         name: name.trim(),
         imageUrl: imageUrl,
-        createdAt: new Date().toISOString(),
+        backstory: backstory || "",
+        gender: gender || "male",
+        createdAt: serverTimestamp(),
         userId: user.uid,
       };
       console.log("Character data:", characterData);
       
-      await setDoc(doc(db, "characters", user.uid), characterData);
-      console.log("Character saved successfully!");
+      const docRef = await addDoc(collection(db, "characters"), characterData);
+      console.log("Character saved successfully to Firestore!");
+      console.log("Document ID:", docRef.id);
       
-      // Navigate to projects page
-      console.log("Navigating to /projects...");
-      router.replace("/projects");
-      console.log("Navigation initiated");
+      // Set this as the active character
+      const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      await AsyncStorage.default.setItem('activeCharacterId', docRef.id);
+      console.log("Set as active character");
+
+      // Navigate to crop page for this character
+      router.replace({
+        pathname: "/settings/avatar/crop",
+        params: { imageUrl: imageUrl as string, characterId: docRef.id, fromNewCharacter: '1' },
+      });
+      console.log("Navigation to crop page initiated");
     } catch (error: any) {
       console.error("Save character error:", error);
       console.error("Error details:", error.code, error.message);
@@ -89,13 +104,24 @@ export default function CharacterName() {
         {/* Character Image */}
         {imageUrl ? (
           <Animated.View style={[styles.imageWrapper, { opacity: fadeAnim }]}>
-            <Image 
-              source={{ uri: imageUrl as string }} 
-              style={styles.characterImage}
-              resizeMode="contain"
-              onError={(error) => console.error("Image load error:", error)}
-              onLoad={() => console.log("Image loaded successfully")}
-            />
+            {imageError ? (
+              <View style={styles.errorImageContainer}>
+                <Text style={styles.errorImageText}>Failed to load image</Text>
+                <Text style={styles.errorImageSubtext}>URL: {String(imageUrl).substring(0, 50)}...</Text>
+              </View>
+            ) : (
+              <Image 
+                source={{ uri: imageUrl as string }} 
+                style={styles.characterImage}
+                resizeMode="cover"
+                onError={(error) => {
+                  console.error("Image load error details:", error.nativeEvent);
+                  console.error("Attempted to load URL:", imageUrl);
+                  setImageError(true);
+                }}
+                onLoad={() => console.log("Image loaded successfully:", imageUrl)}
+              />
+            )}
           </Animated.View>
         ) : (
           <View style={styles.imageWrapper}>
@@ -180,7 +206,7 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     width: "100%",
-    aspectRatio: 1,
+    aspectRatio: 0.57, // Match Stability AI portrait ratio (768/1344)
     maxWidth: 500,
     marginBottom: 30,
     borderRadius: 16,
@@ -252,6 +278,24 @@ const styles = StyleSheet.create({
   noImageText: {
     color: "#666",
     fontSize: 16,
+    textAlign: "center",
+  },
+  errorImageContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorImageText: {
+    color: "#ff3333",
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  errorImageSubtext: {
+    color: "#666",
+    fontSize: 12,
     textAlign: "center",
   },
 });

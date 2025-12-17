@@ -1,22 +1,36 @@
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
-import { questions } from "../data/questions";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Question, generateDynamicQuestions } from "../data/questions";
 
 export default function Questionnaire() {
   const router = useRouter();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Fade in at 2x slower than normal (4000ms)
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 4000,
-      useNativeDriver: true,
-    }).start();
-  }, [currentQuestion]);
+    // Generate questions once on mount
+    const loadQuestions = async () => {
+      const generatedQuestions = await generateDynamicQuestions();
+      setQuestions(generatedQuestions);
+      setLoadingQuestions(false);
+    };
+    
+    loadQuestions();
+  }, []);
+
+  useEffect(() => {
+    if (!loadingQuestions) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 2000,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [currentQuestion, loadingQuestions]);
 
   const handleAnswer = (answer: string) => {
     const newAnswers = [...answers, answer];
@@ -42,6 +56,33 @@ export default function Questionnaire() {
   };
 
   const question = questions[currentQuestion];
+
+  if (loadingQuestions || !questions || questions.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <ActivityIndicator size="large" color="#ffffff" />
+          <Text style={styles.loadingText}>Forging your destiny...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!question) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <Text style={styles.errorText}>Error loading questions. Please try again.</Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.buttonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
@@ -125,5 +166,25 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 18,
     fontWeight: "600",
+  },
+  loadingText: {
+    color: "#ffffff",
+    fontSize: 18,
+    marginTop: 20,
+    fontStyle: "italic",
+  },
+  errorText: {
+    color: "#ff6666",
+    fontSize: 18,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "transparent",
+    borderWidth: 2,
+    borderColor: "#ffffff",
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 12,
   },
 });
